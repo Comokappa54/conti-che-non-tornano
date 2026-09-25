@@ -41,8 +41,9 @@ lavagnette in grande. Non è obbligatorio.
 
 ## Come si collegano i telefoni
 
-Passano da un servizio pubblico gratuito (un «broker» MQTT: HiveMQ, con EMQX di
-riserva). Non ci sono server nostri né account. Serve internet su tutti i
+Passano da due servizi pubblici gratuiti («broker» MQTT: HiveMQ ed EMQX), usati
+insieme: ogni messaggio viaggia su tutti e due, così se uno è lento basta l'altro.
+Non ci sono server nostri né account. Serve internet su tutti i
 telefoni. Chi conoscesse il codice della stanza potrebbe in teoria leggere i
 messaggi: per una serata tra amici non importa, ma non ci passano dati personali.
 
