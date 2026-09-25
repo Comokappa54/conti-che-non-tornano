@@ -48,7 +48,7 @@ messaggi: per una serata tra amici non importa, ma non ci passano dati personali
 
 ## File
 
-- `js/domande.js`: il mazzo (247 coppie). **Non aprirlo se vuoi giocare.**
+- `js/domande.js`: il mazzo (313 coppie, 16 piccanti). **Non aprirlo se vuoi giocare.**
 - `js/regole.js`: le regole. Girano solo sul telefono dell'arbitro.
 - `js/rete.js`: il collegamento tra telefoni.
 - `js/app.js`: le schermate.

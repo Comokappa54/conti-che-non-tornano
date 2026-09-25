@@ -157,7 +157,7 @@
     // a rivelazione già fatta, niente conto alla rovescia
     if (pub.chiave && pub.fase !== "attesa" && pub.fase !== "scrittura" && !ui.anim[pub.chiave]) {
       ui.anim[pub.chiave] = ui.primoStato && !locale ? -1 : Date.now();
-      if (ui.anim[pub.chiave] > 0) avviaAnimazione();
+      if (ui.anim[pub.chiave] > 0) vibraConto();
     }
     ui.primoStato = false;
     if (!prima || prima.chiave !== pub.chiave) {
@@ -246,7 +246,6 @@
     else if (ui.schermata === "crea" || ui.schermata === "entra" || ui.schermata === "tavolo") h = schermoModulo();
     else h = schermoGioco();
     $app.innerHTML = h + (ui.avviso ? '<div class="avviso">' + esc(ui.avviso) + "</div>" : "");
-    passoAnimazione();
     var campo = $app.querySelector("input");
     if (campo && !("ontouchstart" in window)) campo.focus();
   }
@@ -375,14 +374,19 @@
   }
 
   // Le lavagnette girate, con il nome sotto. Usate in rivelazione e verdetto.
+  // Al verdetto le lavagnette sono già girate, e quella dell'impostore
+  // viene cerchiata col gesso.
+  var CERCHIO = '<svg class="cerchio" viewBox="0 0 100 80" preserveAspectRatio="none" aria-hidden="true">' +
+    '<path pathLength="100" d="M52 5 C84 3 97 20 96 40 C95 64 72 77 47 76 C20 75 3 60 4 39 C5 18 25 4 60 8"/></svg>';
   function lavagneScoperte(evidenzia) {
     return '<div class="lavagne">' + pub.partecipanti.map(function (id, i) {
       var g = giocatore(id); if (!g) return "";
-      var cls = evidenzia && evidenzia.indexOf(id) >= 0 ? " colpevole" : "";
+      var colpa = evidenzia && evidenzia.indexOf(id) >= 0;
       var acc = pub.accusati && pub.accusati.indexOf(id) >= 0 ? '<i class="dito">accusato</i>' : "";
-      return '<div class="lav girevole' + cls + '" data-lav="' + i + '" style="--c:' + g.colore + '">' +
+      var tempo = evidenzia ? "--rit:-99s;" : rit(fineConto() + i * GIRO);
+      return '<div class="lav girevole' + (colpa ? " colpevole" : "") + '" style="--c:' + g.colore + ";" + tempo + '">' +
         '<div class="faccia dietro"></div><div class="faccia davanti"><b>' + pub.numeri[id] + suffisso(pub.unita) + "</b></div>" +
-        "<span>" + esc(g.nome) + "</span>" + acc + "</div>";
+        "<span>" + esc(g.nome) + "</span>" + acc + (colpa ? CERCHIO : "") + "</div>";
     }).join("") + "</div>";
   }
 
@@ -401,10 +405,10 @@
     } else {
       giu = '<p class="nota">Discutete a voce. Quando avete deciso, ' + esc(nomeArbitro()) + " segna l'accusa.</p>";
     }
-    return '<section class="rivelazione"><div class="conto" id="conto"></div>' + lavagneScoperte() +
-      '<div class="carta vera nascosta" id="vera"><p class="eti">La domanda era</p><p class="testo">' + esc(pub.vera) + "</p>" +
+    return '<section class="rivelazione">' + contoAllaRovescia() + lavagneScoperte() +
+      '<div class="carta vera comparsa" style="' + rit(fineGiro()) + '"><p class="eti">La domanda era</p><p class="testo">' + esc(pub.vera) + "</p>" +
       '<p class="sotto">Qualcuno ne ha letta un\'altra. ' + (k === 1 ? "Chi?" : "Sono in " + k + ".") + "</p></div>" +
-      '<div class="dopo nascosta" id="dopo">' + giu + "</div></section>";
+      '<div class="dopo comparsa" style="' + rit(fineGiro() + 500) + '">' + giu + "</div></section>";
   }
 
   function fVerdetto() {
@@ -445,38 +449,25 @@
   }
 
   // ------------------------------------------------------------ l'animazione della rivelazione
-  // 3, 2, 1 → le lavagnette si girano una alla volta → compare la domanda vera
-  var CONTO = 700, GIRO = 280;
-  var timerAnim = null;
-  function tempi(ch) {
-    var t0 = ui.anim[ch];
-    if (!t0 || t0 < 0) return { conto: 0, girate: 99, vera: true };
-    var t = Date.now() - t0, n = pub.partecipanti.length;
-    var fineConto = 3 * CONTO, fineGiro = fineConto + n * GIRO + 500;
-    return {
-      conto: t < fineConto ? 3 - Math.floor(t / CONTO) : 0,
-      girate: t < fineConto ? 0 : Math.floor((t - fineConto) / GIRO) + 1,
-      vera: t >= fineGiro, finita: t >= fineGiro + 200
-    };
+  // 3, 2, 1 → le lavagnette si girano una alla volta → compare la domanda vera.
+  // Tutto in CSS, con ritardi misurati dal momento in cui questo telefono ha visto
+  // la rivelazione: se la pagina si ridisegna a metà, ogni pezzo riprende dal punto
+  // giusto invece di ripartire o saltare (prima un timer spostava classi a scatti).
+  var CONTO = 800, GIRO = 300;
+  function trascorso() { var t0 = ui.anim[pub.chiave]; return !t0 || t0 < 0 ? 1e7 : Date.now() - t0; }
+  function fineConto() { return 3 * CONTO; }
+  function fineGiro() { return fineConto() + pub.partecipanti.length * GIRO + 350; }
+  function rit(ms) { return "--rit:" + Math.round(ms - trascorso()) + "ms;"; }
+
+  function contoAllaRovescia() {
+    if (trascorso() > fineConto() + 400) return "";
+    return '<div class="conto" style="' + rit(0) + '"><div class="lav conto-lav">' +
+      [3, 2, 1].map(function (n, i) { return '<b style="' + rit(i * CONTO) + '">' + n + "</b>"; }).join("") +
+      "</div></div>";
   }
-  function passoAnimazione() {
-    if (!pub || !pub.chiave || (pub.fase !== "rivelazione" && pub.fase !== "verdetto")) return;
-    var s = tempi(pub.chiave);
-    var $c = document.getElementById("conto");
-    if ($c) { $c.textContent = s.conto || ""; $c.classList.toggle("vivo", !!s.conto); }
-    $app.querySelectorAll("[data-lav]").forEach(function (el) {
-      el.classList.toggle("girata", +el.getAttribute("data-lav") < s.girate);
-    });
-    ["vera", "dopo"].forEach(function (id) { var e = document.getElementById(id); if (e) e.classList.toggle("nascosta", !s.vera); });
-    return s;
-  }
-  function avviaAnimazione() {
-    clearInterval(timerAnim);
-    if (navigator.vibrate) navigator.vibrate(20);
-    timerAnim = setInterval(function () {
-      var s = passoAnimazione();
-      if (!s || s.finita) clearInterval(timerAnim);
-    }, 60);
+
+  function vibraConto() {
+    if (navigator.vibrate) navigator.vibrate([15, CONTO - 15, 15, CONTO - 15, 15, CONTO - 15, 60]);
   }
 
   // ------------------------------------------------------------ tocchi
